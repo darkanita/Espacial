@@ -1,83 +1,92 @@
 ---
-title: "Sonido en la mesa del salÃ³n"
-author: "Kenneth Roy Cabrera Torres"
-date: "16 de febrero de 2018"
+title: "Sonido en la mesa del salón"
+subtitle: "Trabajo 1"
+author: "Ana María López - Juan Carlos López - Wilinton Galeano"
+date: "Febrero, 2018"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# Estructura de Directorios
+dir.input  <- 'Data/Trabajo1/'
+# Cargar Librerias
+library(dplyr)
+library(ggplot2)
 ```
 
 ## Lectura de la base de datos
 
 ```{r}
-cel_0 <- read.csv("Experimento sin t_tulo Grabaci_n 1_0.csv")
-cel_120 <- read.csv("Experimento sin t_tulo Grabaci_n 1_120.csv")
-```
+# Vector de Datos
+distance <- c("0","120","180","240","300","360","480","540","600")
 
-```{r}
-segundos <- 15
-```
+obs <- NULL
 
-
-
-```{r}
-library(dplyr)
-
-cel_0 <- cel_0 %>%
-         mutate(fecha = as.POSIXct(timestamp/1000, origin="1970-01-01"))
-
-cel_120 <- cel_120 %>%
-         mutate(fecha = as.POSIXct(timestamp/1000, origin="1970-01-01"))
+for (i in 1:length(distance)){
+  obs <- rbind(obs,cbind(read.csv(paste(dir.input,paste("Experimento sin t_tulo Grabaci_n 1_",distance[i],".csv",sep=""),sep="")),distance[i]))
+} 
+colnames(obs) <- c("timestamp","decibelsource","distance")
 
 ```
 
+```{r}
+seg <- 15
+```
+
+
 
 ```{r}
-library(dplyr)
-cel_0_r <- cel_0 %>%
-           group_by(tiempo = round(timestamp/(segundos * 1000), 0)) %>%
-           summarise(MDecibelSource = mean(DecibelSource))
+obs <- obs %>%
+         mutate(date = as.POSIXct(timestamp/1000, origin="1970-01-01"))
+
 ```
 
 
 ```{r}
-library(ggplot2)
-ggplot(cel_0_r, aes(tiempo, MDecibelSource)) +
+obs_r <- obs %>%
+           group_by(distance,tiempo = round(timestamp/(seg * 1000), 0)) %>%
+           summarise(Mdecibelsource = mean(decibelsource))
+```
+
+
+```{r}
+ggplot(obs_r %>% filter(distance==0), aes(tiempo, Mdecibelsource)) +
   geom_line()
 ```
 
 
 
 ```{r}
-library(dplyr)
-cel_120_r <- cel_120 %>%
-           group_by(tiempo = round(timestamp/(segundos * 1000), 0)) %>%
-           summarise(MDecibelSource = mean(DecibelSource))
-```
-
-
-```{r}
-library(ggplot2)
-ggplot(cel_120_r, aes(tiempo, MDecibelSource-16)) +
+#library(dplyr)
+#cel_120_r <- cel_120 %>%
+#           group_by(tiempo = round(timestamp/(segundos * 1000), 0)) %>%
+#           summarise(MDecibelSource = mean(DecibelSource))
+ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource)) +
   geom_line()
 ```
 
 
 ```{r}
-cel_t <- inner_join(cel_0_r, cel_120_r, by = "tiempo")
+#library(ggplot2)
+ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource-16)) +
+  geom_line()
+```
+
+
+```{r}
+cel_t <- inner_join(obs_r %>% filter(distance==0), obs_r %>% filter(distance==120), by = "tiempo")
 ```
 
 
 ```{r}
 library(ggplot2)
-ggplot(cel_t, aes(MDecibelSource.x, MDecibelSource.y)) +
+ggplot(cel_t, aes(Mdecibelsource.x, Mdecibelsource.y)) +
   geom_point()
 ```
 
 
 ```{r}
-with(cel_t, cor(MDecibelSource.x, MDecibelSource.y))
+with(cel_t, cor(Mdecibelsource.x, Mdecibelsource.y))
 ```
 
