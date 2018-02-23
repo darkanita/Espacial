@@ -1,9 +1,14 @@
 ---
-title: "Sonido en la mesa del sal髇"
+title: "Sonido en la mesa del sal贸n"
 subtitle: "Trabajo 1"
-author: "Ana Mar韆 L髉ez - Juan Carlos L髉ez - Wilinton Galeano"
+author:
+- Ana Mar铆a L贸pez 
+- Juan Carlos L贸pez 
+- Wilinton Galeano
 date: "Febrero, 2018"
-output: html_document
+output: 
+html_document: default
+html_notebook: default
 ---
 
 ```{r setup, include=FALSE}
@@ -12,49 +17,115 @@ knitr::opts_chunk$set(echo = TRUE)
 dir.input  <- 'Data/Trabajo1/'
 # Cargar Librerias
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 ```
 
 ## Lectura de la base de datos
 
 ```{r}
-# Vector de Datos
-distance <- c("0","120","180","240","300","360","480","540","600")
+# Vectores de Datos para los nombres de los archivos
+distance <- c(0, 120, 180, 240, 300, 330, 360, 480, 540, 600)
+nombre <- "Experimento sin t_tulo Grabaci_n 1_"
 
+# Lectura de las bases de datos con un for()
 obs <- NULL
-
 for (i in 1:length(distance)){
-  obs <- rbind(obs,cbind(read.csv(paste(dir.input,paste("Experimento sin t_tulo Grabaci_n 1_",distance[i],".csv",sep=""),sep="")),distance[i]))
+      obs <- rbind(obs, cbind(read.csv(paste(dir.input, nombre, distance[i],
+                                             ".csv", sep="")), distance[i]))
 } 
 colnames(obs) <- c("timestamp","decibelsource","distance")
-
 ```
+
+### Descripci贸n de las variables
++ **timestamp:** C贸digo del tiempo de medici贸n.
++ **decibelsource:** Nivel de ruido en decibeles.
++ **distance:** Distancia de medici贸n respecto.
+
+
+## Llevar los datos a un horizonte com煤n de tiempo de 3 segundos.
 
 ```{r}
-seg <- 15
+seg <- 3
 ```
 
-
+### Convertir la variable `timestamp` a fecha.
 
 ```{r}
 obs <- obs %>%
          mutate(date = as.POSIXct(timestamp/1000, origin="1970-01-01"))
-
 ```
 
+### Estimar el promedio para periodos de 3 segundos.
+Se promedian todos los valores de la variable `decibelsource` que se miedieron en cada intervalo de 3 segundos.
 
 ```{r}
 obs_r <- obs %>%
-           group_by(distance,tiempo = round(timestamp/(seg * 1000), 0)) %>%
-           summarise(Mdecibelsource = mean(decibelsource))
+           group_by(distance, tiempo = round(timestamp/(seg * 1000), 0)) %>%
+           summarise(Mdecibelsource = mean(decibelsource)) %>%
+           spread(key = distance, value = Mdecibelsource) %>%
+           filter(complete.cases(.))
 ```
 
+## Graficar el conjunto de realizaciones
+Se presentan las gr谩ficas del conjunto de realizaciones con lo valores medidos originalmente y con los valores calibrados.
 
 ```{r}
-ggplot(obs_r %>% filter(distance==0), aes(tiempo, Mdecibelsource)) +
-  geom_line()
+calibracion <- read.csv(paste0(dir.input, "calibracion.csv"))
+
+cel_t <- obs_r %>% 
+            gather(Distancia, "Mdecibelsource", 2:11) %>%
+            arrange(tiempo, Distancia)
+
+cel_t$Distancia <- as.numeric(cel_t$Distancia)
+
+cel_t_calib <- left_join(x = cel_t, y = calibracion, by = "Distancia") %>%
+            mutate(Mdecibelsource_C = Mdecibelsource + correccion)
+
+ggplot(data = cel_t_calib, aes(x = Distancia, y = Mdecibelsource, 
+                               group = tiempo)) +
+  geom_line(alpha = 0.1, colour = "blue") + 
+  geom_vline(xintercept = distance, colour = "grey") + 
+  ggtitle("Realizaciones con valores sin calibrar") + 
+  ylab("Decibeles")
+
+ggplot(data = cel_t_calib, aes(x = Distancia, y = Mdecibelsource_C, 
+                               group = tiempo)) +
+  geom_line(alpha = 0.1, colour = "red") + 
+  geom_vline(xintercept = distance, colour = "grey") + 
+  ggtitle("Realizaciones con valores calibrados") + 
+  ylab("Decibeles")
 ```
 
+
+## Distribuci贸n del sonido en cada punto de medici贸n
+
+```{r}
+ggplot(data = cel_t_calib, aes(x = Distancia, y = Mdecibelsource,
+                               group = Distancia)) + 
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, colour = "blue", geom = "point", 
+               shape = 18, size = 3, show_guide = FALSE)  +
+  ggtitle("Distribuci贸n en cada punto de los valores sin calibrar") + 
+  ylab("Decibeles")
+
+
+ggplot(data = cel_t_calib, aes(x = Distancia, y = Mdecibelsource_C,
+                               group = Distancia)) + 
+  geom_boxplot() + 
+  stat_summary(fun.y = mean, colour = "red", geom = "point", 
+               shape = 18, size = 3, show_guide = FALSE)  +
+  ggtitle("Distribuci贸n en cada punto de los valores calibrados") + 
+  ylab("Decibeles")
+```
+
+
+## Matriz de correlaci贸n
+
+```{r}
+library(corrplot)
+
+```
 
 
 ```{r}
@@ -62,31 +133,32 @@ ggplot(obs_r %>% filter(distance==0), aes(tiempo, Mdecibelsource)) +
 #cel_120_r <- cel_120 %>%
 #           group_by(tiempo = round(timestamp/(segundos * 1000), 0)) %>%
 #           summarise(MDecibelSource = mean(DecibelSource))
-ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource)) +
-  geom_line()
+
+#ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource)) +
+#  geom_line()
 ```
 
 
 ```{r}
 #library(ggplot2)
-ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource-16)) +
-  geom_line()
+#ggplot(obs_r %>% filter(distance==120), aes(tiempo, Mdecibelsource-16)) +
+#  geom_line()
 ```
 
 
 ```{r}
-cel_t <- inner_join(obs_r %>% filter(distance==0), obs_r %>% filter(distance==120), by = "tiempo")
+#cel_t <- inner_join(obs_r %>% filter(distance==0), obs_r %>% filter(distance==120), by = "tiempo")
 ```
 
 
 ```{r}
-library(ggplot2)
-ggplot(cel_t, aes(Mdecibelsource.x, Mdecibelsource.y)) +
-  geom_point()
+#library(ggplot2)
+#ggplot(cel_t, aes(Mdecibelsource.x, Mdecibelsource.y)) +
+#  geom_point()
 ```
 
 
 ```{r}
-with(cel_t, cor(Mdecibelsource.x, Mdecibelsource.y))
+#with(cel_t, cor(Mdecibelsource.x, Mdecibelsource.y))
 ```
 
